@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from supabase import create_client
 
-st.set_page_config(page_title="Controle - Mercado de Bebidas", layout="wide")
+st.set_page_config(page_title="Controle - Mercado de Bebidas", layout="wide", page_icon="🍻")
 
 # Conexão com o Supabase usando os Secrets
 @st.cache_resource
@@ -14,7 +14,7 @@ def init_supabase():
 
 supabase = init_supabase()
 
-# Funções de busca de dados do Supabase
+# Funções de busca de dados
 def carregar_produtos():
     response = supabase.table("produtos").select("*").execute()
     df = pd.DataFrame(response.data)
@@ -32,16 +32,20 @@ def carregar_vendas():
 df_produtos = carregar_produtos()
 df_vendas = carregar_vendas()
 
-st.title("🍻 Controle de Estoque e Vendas - Mercado")
+# Título Principal Estilizado
+st.title("🍻 Mercado de Bebidas")
+st.markdown("Gerenciamento rápido e seguro na nuvem.")
+st.write("---")
 
-menu = st.sidebar.selectbox("Menu", ["💳 Registrar Venda", "📦 Cadastrar / Estoque", "📊 Relatórios e Faturamento"])
+# Abas Modernas (Substitui o menu lateral e fica ótimo no telemóvel)
+aba1, aba2, aba3 = st.tabs(["💳 Vender", "📦 Estoque", "📊 Relatórios"])
 
-# 1. REGISTRAR VENDA
-if menu == "💳 Registrar Venda":
+# 1. ABA DE VENDAS
+with aba1:
     st.header("Registrar Nova Venda")
     
     if df_produtos.empty:
-        st.warning("Nenhum produto cadastrado ainda.")
+        st.warning("⚠️ Nenhum produto cadastrado ainda. Vá na aba 'Estoque' para cadastrar.")
     else:
         lista_produtos = df_produtos["nome"].tolist()
         produto_escolhido = st.selectbox("Selecione o Produto", lista_produtos)
@@ -51,13 +55,17 @@ if menu == "💳 Registrar Venda":
         estoque_atual = int(info_prod["estoque"])
         prod_id = info_prod["id"]
         
-        st.write(f"Preço Unitário: **R$ {preco_venda:.2f}** | Estoque Disponível: **{estoque_atual}**")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Preço Unitário", f"R$ {preco_venda:.2f}")
+        with col2:
+            st.metric("Estoque Disponível", f"{estoque_atual} un.")
         
-        qtd_vendida = st.number_input("Quantidade", min_value=1, value=1, step=1)
+        qtd_vendida = st.number_input("Quantidade a vender", min_value=1, value=1, step=1)
         
-        if st.button("Confirmar Venda"):
+        if st.button("Confirmar Venda", type="primary", use_container_width=True):
             if qtd_vendida > estoque_atual:
-                st.error("Estoque insuficiente!")
+                st.error("❌ Estoque insuficiente!")
             else:
                 novo_estoque = estoque_atual - qtd_vendida
                 supabase.table("produtos").update({"estoque": novo_estoque}).eq("id", prod_id).execute()
@@ -70,79 +78,74 @@ if menu == "💳 Registrar Venda":
                 }
                 supabase.table("vendas").insert(nova_venda).execute()
                 
-                st.success(f"Venda de {qtd_vendida}x {produto_escolhido} registrada com sucesso!")
+                st.success(f"✅ Venda de {qtd_vendida}x {produto_escolhido} registada com sucesso!")
                 st.rerun()
 
-# 2. CADASTRAR / ESTOQUE
-elif menu == "📦 Cadastrar / Estoque":
+# 2. ABA DE ESTOQUE E CADASTRO
+with aba2:
     st.header("Gerenciamento de Estoque")
     
-    with st.form("form_produto"):
-        novo_produto = st.text_input("Nome do Produto (ex: Cerveja 600ml)")
-        preco_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
-        preco_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
-        estoque_inicial = st.number_input("Quantidade em Estoque", min_value=0, step=1)
-        
-        cadastrar = st.form_submit_button("Salvar Produto")
-        
-        if cadastrar and novo_produto:
-            if not df_produtos.empty and novo_produto in df_produtos["nome"].values:
-                st.error("Esse produto já está cadastrado!")
-            else:
-                dados_prod = {
-                    "nome": novo_produto,
-                    "preco_custo": preco_custo,
-                    "preco_venda": preco_venda,
-                    "estoque": estoque_inicial
-                }
-                supabase.table("produtos").insert(dados_prod).execute()
-                st.success(f"Produto '{novo_produto}' cadastrado com sucesso!")
-                st.rerun()
+    with st.expander("➕ Cadastrar Novo Produto", expanded=False):
+        with st.form("form_produto"):
+            novo_produto = st.text_input("Nome do Produto (ex: Cerveja 600ml)")
+            preco_custo = st.number_input("Preço de Custo (R$)", min_value=0.0, format="%.2f")
+            preco_venda = st.number_input("Preço de Venda (R$)", min_value=0.0, format="%.2f")
+            estoque_inicial = st.number_input("Quantidade em Estoque", min_value=0, step=1)
+            
+            cadastrar = st.form_submit_button("Salvar Produto no Sistema", use_container_width=True)
+            
+            if cadastrar and novo_produto:
+                if not df_produtos.empty and novo_produto in df_produtos["nome"].values:
+                    st.error("❌ Esse produto já está cadastrado!")
+                else:
+                    dados_prod = {
+                        "nome": novo_produto,
+                        "preco_custo": preco_custo,
+                        "preco_venda": preco_venda,
+                        "estoque": estoque_inicial
+                    }
+                    supabase.table("produtos").insert(dados_prod).execute()
+                    st.success(f"✅ Produto '{novo_produto}' cadastrado com sucesso!")
+                    st.rerun()
 
-    st.subheader("Estoque Atual e Exclusão")
+    st.subheader("📋 Produtos em Estoque")
     if not df_produtos.empty:
         st.dataframe(df_produtos[["nome", "preco_custo", "preco_venda", "estoque"]], use_container_width=True)
         
-        st.write("---")
-        st.subheader("Apagar Produto Incorreto")
-        produto_para_apagar = st.selectbox("Selecione o produto que deseja apagar", df_produtos["nome"].tolist(), key="apagar_prod")
-        
-        if st.button("🗑️ Apagar Produto Selecionado"):
+        st.markdown("### 🗑️ Apagar Produto")
+        produto_para_apagar = st.selectbox("Selecione o produto para remover", df_produtos["nome"].tolist(), key="apagar_prod")
+        if st.button("Apagar Produto Selecionado", type="secondary"):
             prod_id_apagar = df_produtos[df_produtos["nome"] == produto_para_apagar].iloc[0]["id"]
             supabase.table("produtos").delete().eq("id", prod_id_apagar).execute()
-            st.success(f"Produto '{produto_para_apagar}' apagado com sucesso!")
+            st.success(f"🗑️ Produto '{produto_para_apagar}' apagado!")
             st.rerun()
 
-# 3. RELATÓRIOS
-elif menu == "📊 Relatórios e Faturamento":
-    st.header("Relatórios de Vendas e Faturamento")
+# 3. ABA DE RELATÓRIOS
+with aba3:
+    st.header("📊 Faturamento e Vendas")
     
     if df_vendas.empty:
-        st.info("Nenhuma venda registrada ainda.")
+        st.info("ℹ️ Nenhuma venda registada ainda.")
     else:
         faturamento_total = df_vendas["valor_total"].sum()
-        st.metric(label="Faturamento Total Registrado", value=f"R$ {faturamento_total:.2f}")
+        st.metric(label="💰 Faturamento Total", value=f"R$ {faturamento_total:.2f}")
         
         st.subheader("Histórico de Vendas")
         st.dataframe(df_vendas[["id", "data", "produto", "quantidade", "valor_total"]], use_container_width=True)
         
-        st.write("---")
-        st.subheader("Apagar Venda Incorreta")
+        with st.expander("🗑️ Corrigir / Apagar Venda"):
+            df_vendas["descricao_venda"] = df_vendas.apply(
+                lambda row: f"ID {row['id']} | {row['data']} - {row['produto']} ({row['quantidade']}x - R$ {row['valor_total']})", 
+                axis=1
+            )
+            venda_escolhida = st.selectbox("Selecione a venda incorreta", df_vendas["descricao_venda"].tolist(), key="apagar_venda")
+            
+            if st.button("Apagar Venda Selecionada"):
+                venda_id_apagar = df_vendas[df_vendas["descricao_venda"] == venda_escolhida].iloc[0]["id"]
+                supabase.table("vendas").delete().eq("id", venda_id_apagar).execute()
+                st.success("✅ Venda apagada com sucesso!")
+                st.rerun()
         
-        # Criar uma descrição para facilitar a escolha da venda a apagar
-        df_vendas["descricao_venda"] = df_vendas.apply(
-            lambda row: f"ID {row['id']} | {row['data']} - {row['produto']} ({row['quantidade']}x - R$ {row['valor_total']})", 
-            axis=1
-        )
-        
-        venda_escolhida = st.selectbox("Selecione a venda que deseja apagar", df_vendas["descricao_venda"].tolist(), key="apagar_venda")
-        
-        if st.button("🗑️ Apagar Venda Selecionada"):
-            venda_id_apagar = df_vendas[df_vendas["descricao_venda"] == venda_escolhida].iloc[0]["id"]
-            supabase.table("vendas").delete().eq("id", venda_id_apagar).execute()
-            st.success("Venda apagada com sucesso!")
-            st.rerun()
-        
-        st.subheader("Produtos Mais Vendidos")
+        st.subheader("📈 Produtos Mais Vendidos")
         mais_vendidos = df_vendas.groupby("produto")["quantidade"].sum().reset_index()
         st.bar_chart(mais_vendidos.set_index("produto"))
