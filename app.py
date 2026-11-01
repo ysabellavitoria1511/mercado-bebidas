@@ -99,9 +99,19 @@ elif menu == "📦 Cadastrar / Estoque":
                 st.success(f"Produto '{novo_produto}' cadastrado com sucesso!")
                 st.rerun()
 
-    st.subheader("Estoque Atual")
+    st.subheader("Estoque Atual e Exclusão")
     if not df_produtos.empty:
         st.dataframe(df_produtos[["nome", "preco_custo", "preco_venda", "estoque"]], use_container_width=True)
+        
+        st.write("---")
+        st.subheader("Apagar Produto Incorreto")
+        produto_para_apagar = st.selectbox("Selecione o produto que deseja apagar", df_produtos["nome"].tolist(), key="apagar_prod")
+        
+        if st.button("🗑️ Apagar Produto Selecionado"):
+            prod_id_apagar = df_produtos[df_produtos["nome"] == produto_para_apagar].iloc[0]["id"]
+            supabase.table("produtos").delete().eq("id", prod_id_apagar).execute()
+            st.success(f"Produto '{produto_para_apagar}' apagado com sucesso!")
+            st.rerun()
 
 # 3. RELATÓRIOS
 elif menu == "📊 Relatórios e Faturamento":
@@ -119,3 +129,4 @@ elif menu == "📊 Relatórios e Faturamento":
         st.subheader("Produtos Mais Vendidos")
         mais_vendidos = df_vendas.groupby("produto")["quantidade"].sum().reset_index()
         st.bar_chart(mais_vendidos.set_index("produto"))
+        
