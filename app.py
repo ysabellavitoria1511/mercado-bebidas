@@ -124,9 +124,25 @@ elif menu == "📊 Relatórios e Faturamento":
         st.metric(label="Faturamento Total Registrado", value=f"R$ {faturamento_total:.2f}")
         
         st.subheader("Histórico de Vendas")
-        st.dataframe(df_vendas[["data", "produto", "quantidade", "valor_total"]], use_container_width=True)
+        st.dataframe(df_vendas[["id", "data", "produto", "quantidade", "valor_total"]], use_container_width=True)
+        
+        st.write("---")
+        st.subheader("Apagar Venda Incorreta")
+        
+        # Criar uma descrição para facilitar a escolha da venda a apagar
+        df_vendas["descricao_venda"] = df_vendas.apply(
+            lambda row: f"ID {row['id']} | {row['data']} - {row['produto']} ({row['quantidade']}x - R$ {row['valor_total']})", 
+            axis=1
+        )
+        
+        venda_escolhida = st.selectbox("Selecione a venda que deseja apagar", df_vendas["descricao_venda"].tolist(), key="apagar_venda")
+        
+        if st.button("🗑️ Apagar Venda Selecionada"):
+            venda_id_apagar = df_vendas[df_vendas["descricao_venda"] == venda_escolhida].iloc[0]["id"]
+            supabase.table("vendas").delete().eq("id", venda_id_apagar).execute()
+            st.success("Venda apagada com sucesso!")
+            st.rerun()
         
         st.subheader("Produtos Mais Vendidos")
         mais_vendidos = df_vendas.groupby("produto")["quantidade"].sum().reset_index()
         st.bar_chart(mais_vendidos.set_index("produto"))
-        
